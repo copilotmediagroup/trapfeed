@@ -194,7 +194,7 @@ create function public.publish_due_videos() returns integer
 language plpgsql security definer set search_path = '' as $$
 declare affected integer;
 begin
-  if not public.is_admin() and auth.role() <> 'service_role' then
+  if not public.is_admin() and coalesce(auth.jwt() ->> 'role', '') <> 'service_role' then
     raise exception 'not authorized';
   end if;
   update public.videos
@@ -273,6 +273,8 @@ values
   ('thumbnails', 'thumbnails', true, 10485760, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
 
+create policy storage_staff_select on storage.objects for select to authenticated
+  using (bucket_id in ('videos', 'thumbnails') and public.is_content_manager());
 create policy storage_staff_insert on storage.objects for insert to authenticated
   with check (bucket_id in ('videos', 'thumbnails') and public.is_content_manager());
 create policy storage_staff_update on storage.objects for update to authenticated
@@ -285,3 +287,20 @@ create policy thumbnails_public_read on storage.objects for select
 
 revoke all on function public.publish_due_videos() from public, anon, authenticated;
 grant execute on function public.publish_due_videos() to authenticated, service_role;
+
+-- Explicitly constrain callable helper functions and Data API privileges.
+revoke all on function public.create_profile_for_user() from public, anon, authenticated;
+revoke all on function public.is_content_manager() from public, anon, authenticated;
+revoke all on function public.is_admin() from public, anon, authenticated;
+revoke all on function public.protect_profile_role() from public, anon, authenticated;
+grant execute on function public.is_content_manager() to anon, authenticated;
+grant execute on function public.is_admin() to authenticated;
+
+revoke all on all tables in schema public from anon, authenticated;
+grant select on public.categories, public.artists, public.videos, public.video_artists, public.homepage_sections, public.homepage_section_videos, public.comments, public.reactions to anon;
+grant select on public.profiles, public.categories, public.artists, public.videos, public.video_artists, public.homepage_sections, public.homepage_section_videos, public.comments, public.reactions, public.video_events, public.moderation_actions to authenticated;
+grant insert, update on public.profiles, public.comments to authenticated;
+grant insert, delete on public.reactions to authenticated;
+grant insert on public.video_events to authenticated, anon;
+grant insert, update, delete on public.categories, public.artists, public.videos, public.video_artists, public.homepage_sections, public.homepage_section_videos, public.moderation_actions to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
