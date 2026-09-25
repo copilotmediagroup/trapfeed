@@ -1,4 +1,6 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TrapFeed
+
+TrapFeed is a premium hip-hop video publishing platform built with Next.js 16. The checked-in UI currently uses local fixtures while the persisted content platform is introduced behind a reviewed database contract.
 
 ## Getting Started
 
@@ -16,11 +18,23 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy `.env.example` to `.env.local` before connecting a Supabase project.
+
+## Backend
+
+The proposed Supabase schema and row-level security policies live in `supabase/migrations`. See [`docs/architecture.md`](docs/architecture.md) for ownership boundaries and the gated rollout plan. Apply migrations to a disposable Supabase branch first:
+
+```bash
+supabase link --project-ref <project-ref>
+supabase db push
+supabase gen types typescript --linked > src/types/database.generated.ts
+```
+
+Do not connect application queries until the generated types reflect the successfully applied schema.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Learn More
+## Next.js documentation
 
 To learn more about Next.js, take a look at the following resources:
 
