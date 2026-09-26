@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Link2, LogOut, Tags, Upload, Video } from 'lucide-react'
+import { Home, LayoutDashboard, Link2, LogOut, Tags, Upload, Video } from 'lucide-react'
 import { logout } from '@/app/admin/(protected)/actions'
 
 const items = [
@@ -11,6 +11,7 @@ const items = [
   { href: '/admin/upload', label: 'Upload', icon: Upload },
   { href: '/admin/youtube', label: 'YouTube Import', icon: Link2 },
   { href: '/admin/categories', label: 'Categories', icon: Tags },
+  { href: '/admin/homepage', label: 'Homepage', icon: Home },
 ]
 
 export function AdminNav() {

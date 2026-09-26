@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import { requireContentManager } from '@/lib/auth'
 
 export async function updateVideo(formData: FormData) {
@@ -28,8 +29,19 @@ export async function setThumbnail(formData: FormData) {
   const { supabase, user } = await requireContentManager()
   const id = String(formData.get('id') ?? '')
   const thumbnailPath = String(formData.get('thumbnailPath') ?? '')
-  if (!id || !thumbnailPath.startsWith(`${id}/`)) redirect(`/admin/videos/${id}?error=Invalid%20thumbnail%20path`)
-  const { error } = await supabase.from('videos').update({ thumbnail_path: thumbnailPath, updated_by: user.id }).eq('id', id)
-  if (error) redirect(`/admin/videos/${id}?error=${encodeURIComponent(error.message)}`)
-  redirect(`/admin/videos/${id}`)
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  if (!uuid.test(id) || !thumbnailPath.startsWith(`${id}/`) || !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/i.test(thumbnailPath)) return { error: 'Invalid thumbnail path.' }
+  const { data: video, error: readError } = await supabase.from('videos').select('thumbnail_path').eq('id', id).single()
+  if (readError || !video) return { error: 'The video could not be verified.' }
+  const oldPath = video.thumbnail_path
+  const { data: updated, error } = await supabase.from('videos').update({ thumbnail_path: thumbnailPath, updated_by: user.id }).eq('id', id).select('thumbnail_path').single()
+  if (error || updated?.thumbnail_path !== thumbnailPath) return { error: `The thumbnail reference could not be updated${error ? `: ${error.message}` : '.'}` }
+  let warning: string | undefined
+  if (oldPath && oldPath !== thumbnailPath && oldPath.startsWith(`${id}/`)) {
+    const { error: cleanupError } = await supabase.storage.from('thumbnails').remove([oldPath])
+    if (cleanupError) warning = `The thumbnail was replaced, but the old object could not be removed: ${cleanupError.message}`
+  }
+  revalidatePath(`/admin/videos/${id}`)
+  revalidatePath('/')
+  return { success: true, warning }
 }
