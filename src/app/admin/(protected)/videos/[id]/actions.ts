@@ -45,3 +45,19 @@ export async function setThumbnail(formData: FormData) {
   revalidatePath('/')
   return { success: true, warning }
 }
+
+export async function deleteVideo(formData: FormData) {
+  const { supabase } = await requireContentManager()
+  const id = String(formData.get('id') ?? '')
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  if (!uuid.test(id)) redirect('/admin/videos?error=Invalid%20video')
+  const { data: video, error: readError } = await supabase.from('videos').select('video_path,thumbnail_path').eq('id', id).single()
+  if (readError || !video) redirect('/admin/videos?error=Video%20not%20found')
+  const { error } = await supabase.from('videos').delete().eq('id', id)
+  if (error) redirect(`/admin/videos/${id}?error=${encodeURIComponent(error.message)}`)
+  if (video.video_path) await supabase.storage.from('videos').remove([video.video_path])
+  if (video.thumbnail_path && !video.thumbnail_path.startsWith('http') && video.thumbnail_path.startsWith(`${id}/`)) await supabase.storage.from('thumbnails').remove([video.thumbnail_path])
+  revalidatePath('/')
+  revalidatePath('/admin/videos')
+  redirect('/admin/videos')
+}
