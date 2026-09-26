@@ -1,3 +1,22 @@
-'use client';
-import {useState} from 'react';import {createClient} from '@/lib/supabase/client';import {setThumbnail} from './actions';
-export default function ThumbnailUpload({videoId,current}:{videoId:string,current?:string|null}){const [busy,setBusy]=useState(false);const [error,setError]=useState('');async function choose(file:File|null){if(!file)return;if(!['image/jpeg','image/png','image/webp'].includes(file.type))return setError('Use a JPG, PNG, or WebP image.');if(file.size>10*1024*1024)return setError('Thumbnail must be 10 MB or smaller.');setBusy(true);setError('');const supabase=createClient();const ext=file.name.split('.').pop()?.toLowerCase()||'jpg';const path=`${videoId}/${crypto.randomUUID()}.${ext}`;const {error:uploadError}=await supabase.storage.from('thumbnails').upload(path,file,{contentType:file.type,upsert:false});if(uploadError){setBusy(false);return setError(uploadError.message)}const fd=new FormData();fd.set('id',videoId);fd.set('thumbnailPath',path);await setThumbnail(fd)}return <div className="thumb-upload"><b>Thumbnail</b><p>{current?'Replace the current homepage thumbnail.':'Add a 16:9 image for homepage and video cards.'}</p>{error&&<div className="login-error">{error}</div>}<label className="secondary">{busy?'UPLOADING…':'CHOOSE THUMBNAIL'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={e=>choose(e.target.files?.[0]??null)}/></label></div>}
+'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { setThumbnail } from './actions'
+
+export default function ThumbnailUpload({ videoId, current }: { videoId: string; current?: string | null }) {
+  const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const router = useRouter()
+  async function choose(file: File | null) {
+    if (!file) return
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return setError('Use a JPG, PNG, or WebP image.')
+    if (file.size > 10 * 1024 * 1024) return setError('Thumbnail must be 10 MB or smaller.')
+    setBusy(true); setError(''); setNotice(''); const supabase = createClient(); const ext = file.type === 'image/jpeg' ? 'jpg' : file.type.split('/')[1]; const path = `${videoId}/${crypto.randomUUID()}.${ext}`
+    const { error: uploadError } = await supabase.storage.from('thumbnails').upload(path, file, { contentType: file.type, upsert: false })
+    if (uploadError) { setBusy(false); return setError(uploadError.message) }
+    const fd = new FormData(); fd.set('id', videoId); fd.set('thumbnailPath', path); let result: Awaited<ReturnType<typeof setThumbnail>>
+    try { result = await setThumbnail(fd) } catch { setBusy(false); setError('The update could not be confirmed. The new object was retained to avoid deleting a thumbnail the database may reference.'); return }
+    if (result?.error) { const { error: cleanupError } = await supabase.storage.from('thumbnails').remove([path]); setBusy(false); return setError(`${result.error}${cleanupError ? ` New-object cleanup failed: ${cleanupError.message}` : ' The new object was removed.'}`) }
+    setBusy(false); setNotice(result?.warning ?? 'Thumbnail replaced safely.'); router.refresh()
+  }
+  return <div className="thumb-upload"><b>Thumbnail</b><p>{current ? 'Replace the current homepage thumbnail.' : 'Add a 16:9 image for homepage and video cards.'}</p>{error && <div className="login-error">{error}</div>}{notice && <div className="success-notice">{notice}</div>}<label className="secondary">{busy ? 'UPLOADING…' : 'CHOOSE THUMBNAIL'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={e => choose(e.target.files?.[0] ?? null)} /></label></div>
+}

@@ -38,3 +38,23 @@ update public.profiles set role = 'admin' where id = '<verified auth.users id>';
 6. Replace the public fixture only after publishing and homepage queries are covered by integration tests.
 
 No production schema has been inferred by this change: this migration is the proposed source of truth and must be reviewed and applied before application code depends on it.
+## Production package 2 audit
+
+The checked-in migration history is the schema source used for this package; no live
+database connection was available. The existing `homepage_sections` table owns section
+titles, keys, types, active state, and section order. The existing
+`homepage_section_videos` table owns unique video placement and order within a section.
+The `hero` section type is the primary featured-content owner, with the existing
+`videos.is_featured` flag retained only as the deterministic empty-composition fallback.
+No second homepage-ordering schema was added.
+
+Trending is intentionally simple: the public `get_trending_videos` function counts only
+recorded `play` events in a seven-day window, restricts results to currently published
+videos, and orders equal counts by video ID. The function caps caller-controlled windows
+and result sizes, and a partial recent-play index supports the aggregation. The existing
+30-minute identity-based suppression remains in `record_video_play`.
+
+Generated Supabase types were not checked in because this environment has no linked
+Supabase project against which schema generation can be verified. Generate them from the
+target project only after applying migrations, then parameterize the browser and server
+clients with that generated `Database` type.
