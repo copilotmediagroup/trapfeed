@@ -1,0 +1,3 @@
+import Link from 'next/link';
+import { login } from './actions';
+export default async function AdminLogin({searchParams}:{searchParams:Promise<{error?:string}>}){const {error}=await searchParams;return <main className="admin-login"><form action={login} className="login-card"><Link href="/" className="brand">TRAP<span>FEED</span></Link><small>ADMIN CONTROL</small><h1>Sign in</h1><p>Authorized TrapFeed staff only.</p>{error&&<div className="login-error">{error}</div>}<label>Email<input name="email" type="email" autoComplete="email" required/></label><label>Password<input name="password" type="password" autoComplete="current-password" required/></label><button className="primary" type="submit">SIGN IN</button><Link href="/">← Back to TrapFeed</Link></form></main>}
